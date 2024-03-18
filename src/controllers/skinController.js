@@ -8,22 +8,24 @@ const NodeCache = require("node-cache");
 
 const skinCache = new NodeCache();
 
-// Rate limiting options (100 requests per hour per IP)
-const limiter = rateLimit({
-    windowMs: 60 * 60 * 1000, 
-    max: 100, 
-    message: 'Too many requests from this IP, please try again later.'
-});
-
 async function getSkin(req, res) {
     try {
+        const startTime = new Date();
+        console.log(`[${startTime.toLocaleString()}] Incoming request: ${req.method} ${req.originalUrl}`);
+        
         let { name, type } = req.params;
         const scale = parseInt(req.query.scale) || 25; 
+        if (scale > 50) {
+            console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale exceeds limit`);
+            return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
+        }
+        
         if (!isUUID(name)) {
             const player = new mc.player(name);
             const uuidData = await mc.nameToUuid(player);
             if (!uuidData || !uuidData.uuid) {
-                return res.status(404).send('Player not found');
+                console.log(`[${new Date().toLocaleString()}] Player not found: ${name}`);
+                return res.status(404).json({'code': '404', 'error': 'Player not found'});
             }
             name = uuidData.uuid; 
         }
@@ -31,6 +33,7 @@ async function getSkin(req, res) {
         const cachedSkin = skinCache.get(`${name}_${type}_${scale}`);
 
         if (cachedSkin) {
+            console.log(`[${new Date().toLocaleString()}] Cache hit for skin: ${name}_${type}_${scale}`);
             return sendResponse(res, cachedSkin);
         }
 
@@ -60,9 +63,13 @@ async function getSkin(req, res) {
 
         // Delete the intermediary file
         fs.unlink(skinPath);
+        
+        const endTime = new Date();
+        const duration = endTime - startTime;
+        console.log(`[${endTime.toLocaleString()}] Request processed in ${duration}ms`);
     } catch (error) {
         console.error("Error occurred:", error);
-        res.status(500).send('Internal Server Error');
+        res.status(500).json({'code': '500', 'error': 'Internal Server Error'});
     }
 }
 

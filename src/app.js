@@ -19,6 +19,7 @@ const bodyParser = require('body-parser');
 const skinController = require('./controllers/skinController');
 const app = express();
 app.use(bodyParser.json());
+require('dotenv').config();
 
 // routes
 

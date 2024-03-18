@@ -36,6 +36,7 @@
     "depd": "^2.0.0",
     "destroy": "^1.2.0",
     "detect-libc": "^2.0.2",
+    "dotenv": "^16.4.5",
     "ee-first": "^1.1.1",
     "emoji-regex": "^8.0.0",
     "encodeurl": "^1.0.2",
