@@ -19,6 +19,10 @@ async function getSkin(req, res) {
             console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale exceeds limit`);
             return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
         }
+        if ( scale < 1 ) {
+            console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale is under limit`);
+            return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
+        }
         
         if (!isUUID(name)) {
             const player = new mc.player(name);
