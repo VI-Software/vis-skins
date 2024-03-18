@@ -1,4 +1,3 @@
----
 
 # VIS-SKINS
 
@@ -46,5 +45,4 @@ The API responds with the rendered image of the player's skin in PNG format.
 ## Error Handling
 
 If an error occurs during the request processing, the API responds with an appropriate HTTP status code along with an error message.
-
----
+```
