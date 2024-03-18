@@ -30,12 +30,12 @@ GET /2d/skin/:name/:type
 
 - Get the head render of the player skin:
   ```
-  GET /2d/skin/Crujera27_3/head
+  GET /2d/skin/Benson/head
   ```
 
 - Get the full body render of the player skin with scale 2:
   ```
-  GET /2d/skin/Crujera27_3/fullbody?scale=2
+  GET /2d/skin/Benson/fullbody?scale=2
   ```
 
 ## Response
