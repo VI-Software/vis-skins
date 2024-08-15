@@ -26,24 +26,42 @@ async function getSkin(req, res) {
         
         if (!isUUID(name)) {
             const player = new mc.player(name);
-            const uuidData = await mc.nameToUuid(player);
+            let uuidData;
+            try {
+                console.log(`[${new Date().toLocaleString()}] Fetching UUID for player: ${name}`);
+                uuidData = await mc.nameToUuid(player);
+                console.log(`[${new Date().toLocaleString()}] UUID data received: ${JSON.stringify(uuidData)}`);
+            } catch (error) {
+                console.log(`[${new Date().toLocaleString()}] Error fetching UUID for player: ${name}`, error);
+                name = 'VI_Software'; // Fallback to VI_Software
+            }
             if (!uuidData || !uuidData.uuid) {
                 console.log(`[${new Date().toLocaleString()}] Player not found: ${name}`);
-                return res.status(404).json({'code': '404', 'error': 'Player not found'});
+                name = 'VI_Software'; // Fallback to VI_Software
+            } else {
+                name = uuidData.uuid;
             }
-            name = uuidData.uuid; 
         }
+
         const cachedSkin = skinCache.get(`${name}_${type}_${scale}`);
         if (cachedSkin) {
             console.log(`[${new Date().toLocaleString()}] Cache hit for skin: ${name}_${type}_${scale}`);
             return sendResponse(res, cachedSkin);
         }
+
         const player = new mc.player(name);
         const skinData = await mc.getSkin(player);
         if (!skinData || !skinData.skin) {
             console.log(`[${new Date().toLocaleString()}] Skin not found for player: ${name}`);
-            return res.status(404).json({'code': '404', 'error': 'Skin not found'});
+            name = 'VI_Software'; // Fallback to VI_Software
+            const fallbackPlayer = new mc.player(name);
+            const fallbackSkinData = await mc.getSkin(fallbackPlayer);
+            if (!fallbackSkinData || !fallbackSkinData.skin) {
+                return res.status(404).json({'code': '404', 'error': 'Skin not found'});
+            }
+            skinData.skin = fallbackSkinData.skin;
         }
+
         const skinUrl = skinData.skin;
         const response = await axios.get(skinUrl, { responseType: "arraybuffer" });
         const skinPath = path.join(__dirname, `../assets/${name}.png`);
