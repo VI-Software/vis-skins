@@ -19,7 +19,7 @@ async function getSkin(req, res) {
             console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale exceeds limit`);
             return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
         }
-        if ( scale < 1 ) {
+        if (scale < 1) {
             console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale is under limit`);
             return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
         }
@@ -33,38 +33,32 @@ async function getSkin(req, res) {
             }
             name = uuidData.uuid; 
         }
-
         const cachedSkin = skinCache.get(`${name}_${type}_${scale}`);
-
         if (cachedSkin) {
             console.log(`[${new Date().toLocaleString()}] Cache hit for skin: ${name}_${type}_${scale}`);
             return sendResponse(res, cachedSkin);
         }
-
         const player = new mc.player(name);
         const skinData = await mc.getSkin(player);
-
+        if (!skinData || !skinData.skin) {
+            console.log(`[${new Date().toLocaleString()}] Skin not found for player: ${name}`);
+            return res.status(404).json({'code': '404', 'error': 'Skin not found'});
+        }
         const skinUrl = skinData.skin;
         const response = await axios.get(skinUrl, { responseType: "arraybuffer" });
-
         const skinPath = path.join(__dirname, `../assets/${name}.png`);
         await fs.writeFile(skinPath, response.data);
-
         const skinImage = await fs.readFile(skinPath);
-
         let render;
         if (type === 'head') {
             render = await renderHead(skinImage, { scale });
         } else {
             render = await renderFullBody(skinImage, { scale });
         }
-
         // Cache the skin with the render type and scale
         skinCache.set(`${name}_${type}_${scale}`, render);
-
         // Send the response
         sendResponse(res, render);
-
         // Delete the intermediary file
         fs.unlink(skinPath);
         

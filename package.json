@@ -136,6 +136,7 @@
     "util-deprecate": "^1.0.2",
     "utils-merge": "^1.0.1",
     "vary": "^1.1.2",
+    "vis-skins": "file:",
     "vis-yggdrasil-tools": "^1.5.2",
     "webidl-conversions": "^3.0.1",
     "whatwg-url": "^5.0.0",
