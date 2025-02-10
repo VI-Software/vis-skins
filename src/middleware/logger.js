@@ -138,6 +138,29 @@ ${JSON.stringify(systemInfo, null, 2)}
 ${createLogBorder('END SYSTEM INFO')}\n`;
 };
 
+const createAccessLog = (req, res, responseTime) => {
+    const ip = req.headers['x-forwarded-for'] || req.ip;
+    const method = req.method;
+    const url = req.originalUrl;
+    const status = res.statusCode;
+    const userAgent = req.headers['user-agent'] || '-';
+    const contentLength = res.getHeader('content-length') || '-';
+    const referer = req.headers['referer'] || '-';
+    
+    return `${createLogBorder('ACCESS LOG')}
+${createSectionBreak('REQUEST')}
+IP: ${ip}
+Time: ${new Date().toISOString()}
+Method: ${method}
+URL: ${url}
+Status: ${status}
+Response Time: ${responseTime}ms
+User Agent: ${userAgent}
+Content Length: ${contentLength}
+Referer: ${referer}
+${createLogBorder('END ACCESS LOG')}\n`;
+};
+
 let logsEnabled = true;
 let consoleLogsEnabled = true;
 
@@ -156,7 +179,9 @@ const logsMiddleware = (req, res, next) => {
         const diff = process.hrtime(startTime);
         const responseTime = (diff[0] * 1e3 + diff[1] * 1e-6).toFixed(2);
         
-        const logMessage = `${createLogBorder('SKIN REQUEST')}
+        // Combine access and detailed logs
+        const logMessage = `${createAccessLog(req, res, responseTime)}
+${createLogBorder('DETAILED REQUEST INFO')}
 ${createSectionBreak('REQUEST DETAILS')}
 Method: ${req.method}
 URL: ${req.originalUrl}
@@ -169,8 +194,7 @@ ${createSectionBreak('RESPONSE DETAILS')}
 Status: ${res.statusCode}
 Response Time: ${responseTime}ms
 Memory Usage: ${JSON.stringify(getMemoryUsage(), null, 2)}
-
-${createLogBorder('END REQUEST')}\n`;
+${createLogBorder('END DETAILED INFO')}\n`;
 
         fs.appendFile(logFilePath, logMessage, (err) => {
             if (err) console.error('Failed to write log:', err);

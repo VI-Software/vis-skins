@@ -12,7 +12,6 @@
     "express": "^4.18.3",
     "express-rate-limit": "^7.2.0",
     "minecraft-skins": "^1.0.6",
-    "morgan": "^1.10.0",
     "node-cache": "^5.1.2",
     "vis-skins": "file:",
     "vis-yggdrasil-tools": "^1.5.4"

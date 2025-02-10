@@ -17,21 +17,12 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const skinController = require('./controllers/skinController');
-const morgan = require('morgan'); // Step 1: Import morgan
-const fs = require('fs'); // Step 2: Import fs
-const path = require('path'); // Step 2: Import path
-const { logsMiddleware } = require('./middleware/logger'); // Import logsMiddleware
+const { logsMiddleware } = require('./middleware/logger');
 
 const app = express();
 app.use(bodyParser.json());
-app.use(logsMiddleware); // Use logsMiddleware
+app.use(logsMiddleware);
 require('dotenv').config();
-
-// Step 3: Create a write stream for logging
-const accessLogStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
-
-// Step 4: Configure morgan to use the write stream
-app.use(morgan('combined', { stream: accessLogStream }));
 
 // routes
 app.get('/', (req, res) => {
