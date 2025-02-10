@@ -7,6 +7,19 @@ const rateLimit = require('express-rate-limit');
 const NodeCache = require("node-cache");
 
 const skinCache = new NodeCache();
+const tempDir = path.join(__dirname, '../temp');
+
+// Ensure temp directory exists
+const ensureTempDir = async () => {
+    try {
+        await fs.access(tempDir);
+    } catch {
+        await fs.mkdir(tempDir, { recursive: true });
+    }
+};
+
+// Initialize temp directory
+ensureTempDir().catch(console.error);
 
 async function getSkin(req, res) {
     try {
@@ -14,78 +27,83 @@ async function getSkin(req, res) {
         console.log(`[${startTime.toLocaleString()}] Incoming request: ${req.method} ${req.originalUrl}`);
         
         let { name, type } = req.params;
-        const scale = parseInt(req.query.scale) || 25; 
-        if (scale > 50) {
-            console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale exceeds limit`);
-            return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
-        }
-        if (scale < 1) {
-            console.log(`[${new Date().toLocaleString()}] Action forbidden: Scale is under limit`);
-            return res.status(403).json({'code': '403', 'error': 'Action forbidden'});
-        }
+        const scale = Math.min(Math.max(parseInt(req.query.scale) || 25, 1), 50);
         
-        if (!isUUID(name)) {
-            const player = new mc.player(name);
-            let uuidData;
-            try {
-                console.log(`[${new Date().toLocaleString()}] Fetching UUID for player: ${name}`);
-                uuidData = await mc.nameToUuid(player);
-                console.log(`[${new Date().toLocaleString()}] UUID data received: ${JSON.stringify(uuidData)}`);
-            } catch (error) {
-                console.log(`[${new Date().toLocaleString()}] Error fetching UUID for player: ${name}`, error);
-                name = 'VI_Software'; // Fallback to VI_Software
+        const fallbackToDefault = async () => {
+            console.log(`[${new Date().toLocaleString()}] Falling back to VI_Software skin`);
+            const defaultPlayer = new mc.player('VI_Software');
+            const defaultSkinData = await mc.getSkin(defaultPlayer);
+            if (!defaultSkinData || !defaultSkinData.skin) {
+                throw new Error('Default skin not available');
             }
-            if (!uuidData || !uuidData.uuid) {
-                console.log(`[${new Date().toLocaleString()}] Player not found: ${name}`);
-                name = 'VI_Software'; // Fallback to VI_Software
-            } else {
+            return defaultSkinData.skin;
+        };
+
+        try {
+            if (!isUUID(name)) {
+                const player = new mc.player(name);
+                const uuidData = await mc.nameToUuid(player).catch(() => null);
+                if (!uuidData || !uuidData.uuid) {
+                    return await handleSkinRender(await fallbackToDefault(), type, scale, res);
+                }
                 name = uuidData.uuid;
             }
-        }
 
-        const cachedSkin = skinCache.get(`${name}_${type}_${scale}`);
-        if (cachedSkin) {
-            console.log(`[${new Date().toLocaleString()}] Cache hit for skin: ${name}_${type}_${scale}`);
-            return sendResponse(res, cachedSkin);
-        }
-
-        const player = new mc.player(name);
-        const skinData = await mc.getSkin(player);
-        if (!skinData || !skinData.skin) {
-            console.log(`[${new Date().toLocaleString()}] Skin not found for player: ${name}`);
-            name = 'VI_Software'; // Fallback to VI_Software
-            const fallbackPlayer = new mc.player(name);
-            const fallbackSkinData = await mc.getSkin(fallbackPlayer);
-            if (!fallbackSkinData || !fallbackSkinData.skin) {
-                return res.status(404).json({'code': '404', 'error': 'Skin not found'});
+            const cachedSkin = skinCache.get(`${name}_${type}_${scale}`);
+            if (cachedSkin) {
+                return sendResponse(res, cachedSkin);
             }
-            skinData.skin = fallbackSkinData.skin;
+
+            const player = new mc.player(name);
+            const skinData = await mc.getSkin(player).catch(() => null);
+            const skinUrl = skinData?.skin || await fallbackToDefault();
+            
+            await handleSkinRender(skinUrl, type, scale, res);
+
+        } catch (error) {
+            console.error(`Skin processing error:`, error);
+            const fallbackSkin = await fallbackToDefault();
+            await handleSkinRender(fallbackSkin, type, scale, res);
         }
 
-        const skinUrl = skinData.skin;
-        const response = await axios.get(skinUrl, { responseType: "arraybuffer" });
-        const skinPath = path.join(__dirname, `../assets/${name}.png`);
-        await fs.writeFile(skinPath, response.data);
-        const skinImage = await fs.readFile(skinPath);
-        let render;
-        if (type === 'head') {
-            render = await renderHead(skinImage, { scale });
-        } else {
-            render = await renderFullBody(skinImage, { scale });
-        }
-        // Cache the skin with the render type and scale
-        skinCache.set(`${name}_${type}_${scale}`, render);
-        // Send the response
-        sendResponse(res, render);
-        // Delete the intermediary file
-        fs.unlink(skinPath);
-        
-        const endTime = new Date();
-        const duration = endTime - startTime;
-        console.log(`[${endTime.toLocaleString()}] Request processed in ${duration}ms`);
     } catch (error) {
-        console.error("Error occurred:", error);
-        res.status(500).json({'code': '500', 'error': 'Internal Server Error'});
+        console.error("Fatal error:", error);
+        res.status(500).json({
+            code: '500',
+            error: 'Internal Server Error',
+            message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+}
+
+async function handleSkinRender(skinUrl, type, scale, res) {
+    let tempPath = null;
+    try {
+        await ensureTempDir(); // Ensure temp directory exists before each operation
+        
+        const response = await axios.get(skinUrl, { responseType: "arraybuffer" });
+        tempPath = path.join(tempDir, `${Date.now()}.png`);
+        await fs.writeFile(tempPath, response.data);
+        
+        const skinImage = await fs.readFile(tempPath);
+        const render = type === 'head' ? 
+            await renderHead(skinImage, { scale }) : 
+            await renderFullBody(skinImage, { scale });
+
+        sendResponse(res, render);
+
+    } catch (error) {
+        console.error("Render error:", error);
+        throw error;
+    } finally {
+        // Clean up temp file if it exists
+        if (tempPath) {
+            try {
+                await fs.unlink(tempPath);
+            } catch (err) {
+                console.error("Failed to clean up temp file:", err);
+            }
+        }
     }
 }
 

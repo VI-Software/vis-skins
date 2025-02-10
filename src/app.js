@@ -3,7 +3,7 @@
 \   \ /   /|   |  /   _____/ _____/ ____\/  |___  _  _______ _______   ____  
  \   Y   / |   |  \_____  \ /  _ \   __\\   __\ \/ \/ /\__  \\_  __ \_/ __ \ 
   \     /  |   |  /        (  <_> )  |   |  |  \     /  / __ \|  | \/\  ___/ 
-   \___/   |___| /_______  /\____/|__|   |__|   \/\_/  (____  /__|    \___  >
+   \___/   |___| /_______  /\____/|__|   \/\_/  (____  /__|    \___  >
                          \/                                 \/            \/ 
                          
                          
@@ -20,9 +20,11 @@ const skinController = require('./controllers/skinController');
 const morgan = require('morgan'); // Step 1: Import morgan
 const fs = require('fs'); // Step 2: Import fs
 const path = require('path'); // Step 2: Import path
+const { logsMiddleware } = require('./middleware/logger'); // Import logsMiddleware
 
 const app = express();
 app.use(bodyParser.json());
+app.use(logsMiddleware); // Use logsMiddleware
 require('dotenv').config();
 
 // Step 3: Create a write stream for logging
@@ -33,7 +35,7 @@ app.use(morgan('combined', { stream: accessLogStream }));
 
 // routes
 app.get('/', (req, res) => {
-    res.json({ status: 'OK', 'statusCode': '200', 'Runtime-Mode': 'productionMode', 'Application-Author': 'The VI Software Team', 'Application-Description': 'VI Software skin rendering service', 'Specification-Version': require('../package.json').version, 'Application-Name': 'visoftware.dev.skin.render-server.public' });
+    res.json({ status: 'OK', 'statusCode': '200', 'Runtime-Mode': 'productionMode', 'Application-Author': 'The VI Software Team', 'Application-Description': 'VI Software skin rendering service', 'Specification-Version': require('../package.json').version, 'Application-Name': require('../package.json').name });
 });
 
 app.get('/2d/skin/:name/:type', skinController.getSkin);
@@ -42,6 +44,26 @@ app.get('/2d/skin/:name/:type', skinController.getSkin);
 app.use((req, res, next) => {
     res.status(404).json({ code: '404', error: 'Not found' });
 });
+
+// Add global error handlers before starting the server
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (error) => {
+    console.error('Unhandled Rejection:', error);
+});
+
+// Update error handler middleware
+app.use((err, req, res, next) => {
+    console.error('Global error handler:', err);
+    res.status(500).json({
+        code: '500',
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
