@@ -6,7 +6,7 @@ This API allows you to retrieve and render Minecraft player skins. You can reque
 ## Base URL
 
 ```
-https://skins.visoftware.tech
+https://skins.visoftware.dev
 ```
 
 ## Endpoints
