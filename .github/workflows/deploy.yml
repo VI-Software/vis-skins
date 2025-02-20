@@ -1,0 +1,17 @@
+name: Deploy to Production
+on:
+  push:
+    branches:
+      - production
+            
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Deploy Pterodactyl Server
+        uses: supercrafter100/Pterodactyl-Restart@v1.0
+        with:
+          PTE_PANEL_URL: ${{ secrets.PTE_PANEL_URL }}
+          PTE_BEARER_TOKEN: ${{ secrets.PTE_BEARER_TOKEN }}
+          PTE_PANEL_ID: ${{ secrets.PTE_PANEL_ID }}
